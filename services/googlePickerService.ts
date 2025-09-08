@@ -23,6 +23,7 @@ let credentials = {
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SEND_SCOPE = 'https://www.googleapis.com/auth/gmail.send';
 
 
 let gapiLoadedPromise: Promise<void> | null = null;
@@ -83,7 +84,7 @@ const initGoogleAuth = async () => {
 
     tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: credentials.clientId,
-        scope: `${DRIVE_SCOPE} ${GMAIL_SCOPE}`,
+        scope: `${DRIVE_SCOPE} ${GMAIL_SCOPE} ${GMAIL_SEND_SCOPE}`,
         callback: (tokenResponse: google.accounts.oauth2.TokenResponse) => {
             if (tokenResponse.error) {
                 // This case is handled in the promise rejection in getAccessToken
@@ -285,5 +286,41 @@ export const googleApiService = {
         }
 
         return base64UrlDecode(plainTextPart.body.data);
+    },
+    async sendEmail(to: string, subject: string, body: string): Promise<void> {
+        await initGoogleAuth();
+        await getAccessToken();
+    
+        const emailLines = [
+            `To: ${to}`,
+            'Content-Type: text/plain; charset=utf-8',
+            'MIME-Version: 1.0',
+            `Subject: ${subject}`,
+            '',
+            body
+        ];
+        const email = emailLines.join('\r\n');
+    
+        const base64EncodedEmail = btoa(email)
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+        
+        try {
+            const response = await window.gapi.client.gmail.users.messages.send({
+                userId: 'me',
+                resource: {
+                    raw: base64EncodedEmail
+                }
+            });
+    
+            if (response.status < 200 || response.status >= 300) {
+                 throw new Error(`Gmail API responded with status ${response.status}`);
+            }
+        } catch (err: any) {
+            console.error('Gmail API send error:', err);
+            const message = err.result?.error?.message || err.message || 'An unknown error occurred while sending email.';
+            throw new Error(message);
+        }
     }
 };
