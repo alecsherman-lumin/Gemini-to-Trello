@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { ActionItem, TrelloList } from '../types';
 import trelloService from '../services/trelloService';
 import ActionItemCard from './ActionItemCard';
@@ -23,41 +23,7 @@ const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDe
   const [selectedList, setSelectedList] = useState<TrelloList | null>(null);
   const [creationProgress, setCreationProgress] = useState(0);
   const [trelloApiKey, setTrelloApiKey] = useState<string>('');
-  const [isConnecting, setIsConnecting] = useState<boolean>(true); // Start true for auto-connect attempt
-
-  useEffect(() => {
-    const autoConnect = async () => {
-      const storedKey = localStorage.getItem('trelloApiKey');
-      if (storedKey) {
-        setTrelloApiKey(storedKey);
-        setError(null);
-        try {
-          trelloService.setApiKey(storedKey);
-          await trelloService.init();
-          if (trelloService.isAuthorized()) {
-            setStep('configuring');
-          } else {
-             // Key exists but not authorized, might be stale or revoked. Prompt for popup.
-             // This can happen if user clears cookies but not localStorage.
-             await trelloService.authorize();
-             setStep('configuring');
-          }
-        } catch (err) {
-          // Stored key is likely invalid. Clear it and go back to idle.
-          localStorage.removeItem('trelloApiKey');
-          setTrelloApiKey('');
-          setStep('idle');
-          setError('Your stored Trello connection failed. Please reconnect.');
-        } finally {
-          setIsConnecting(false);
-        }
-      } else {
-        setIsConnecting(false);
-      }
-    };
-    autoConnect();
-  }, []);
-
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
 
   const handleInitiateTrelloFlow = () => {
     setError(null);
@@ -79,12 +45,10 @@ const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDe
       trelloService.setApiKey(trelloApiKey);
       await trelloService.init();
       await trelloService.authorize();
-      localStorage.setItem('trelloApiKey', trelloApiKey);
       setStep('configuring');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred during connection.');
       trelloService.deauthorize();
-      localStorage.removeItem('trelloApiKey');
       setStep('prompt_key');
     } finally {
       setIsConnecting(false);
@@ -93,7 +57,6 @@ const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDe
 
   const handleDisconnect = () => {
     trelloService.deauthorize();
-    localStorage.removeItem('trelloApiKey');
     setTrelloApiKey('');
     setSelectedList(null);
     setStep('idle');
