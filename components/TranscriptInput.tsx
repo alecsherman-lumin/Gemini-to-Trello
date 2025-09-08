@@ -60,7 +60,7 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
           onClick={onAutoPostFromGmail}
           disabled={isAnyActionLoading || !isTrelloConfigured}
           className="w-full max-w-md mx-auto flex items-center justify-center gap-3 px-6 py-4 bg-purple-600 text-white font-bold rounded-lg shadow-lg hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:scale-100"
-          title={isTrelloConfigured ? "Finds the newest unread email with the subject 'Notes by Gemini' and posts all action items to Trello." : "You must configure Trello first."}
+          title={isTrelloConfigured ? "Finds the newest unread email from gemini-notes@google.com and posts all action items to Trello." : "You must configure Trello first."}
         >
           {isAutoPosting ? <SpinnerIcon className="w-6 h-6" /> : <MailIcon className="w-6 h-6" />}
           {isAutoPosting ? 'Processing Your Email...' : 'Process Latest Email'}
@@ -100,7 +100,7 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
                 onClick={onImportFromGmail}
                 disabled={isAnyActionLoading}
                 className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-slate-600 text-white font-semibold rounded-lg shadow-md hover:bg-slate-700 disabled:bg-slate-500 disabled:cursor-not-allowed transition-all duration-300"
-                title="Finds the newest unread email with the subject 'Notes by Gemini'"
+                title="Finds the newest unread email from gemini-notes@google.com"
               >
                 <GmailIcon className="w-5 h-5" />
                 {isImportingGmail ? 'Importing...' : 'Import from Gmail'}

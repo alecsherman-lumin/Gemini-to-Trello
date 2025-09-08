@@ -1,4 +1,3 @@
-
 // FIX: Add minimal type definitions for Google Identity Services to resolve namespace errors.
 declare namespace google {
     namespace accounts {
@@ -246,13 +245,13 @@ export const googleApiService = {
 
         const listResponse = await window.gapi.client.gmail.users.messages.list({
             userId: 'me',
-            q: 'subject:"Notes by Gemini" is:unread',
+            q: 'from:gemini-notes@google.com is:unread',
             maxResults: 1,
         });
 
         const messages = listResponse.result.messages;
         if (!messages || messages.length === 0) {
-            throw new Error("No unread email with the subject 'Notes by Gemini' found in your inbox.");
+            throw new Error("No unread email from gemini-notes@google.com found in your inbox.");
         }
         
         const messageId = messages[0].id;
