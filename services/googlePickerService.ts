@@ -16,6 +16,12 @@ declare namespace google {
     }
 }
 
+// Define an interface for the token object we'll store, including an expiration timestamp.
+interface StoredToken extends google.accounts.oauth2.TokenResponse {
+  expires_at: number;
+}
+
+
 let credentials = {
   apiKey: localStorage.getItem('googleApiKey') || '',
   clientId: localStorage.getItem('googleClientId') || '',
@@ -28,7 +34,19 @@ const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 let gapiLoadedPromise: Promise<void> | null = null;
 let gisLoadedPromise: Promise<void> | null = null;
 let tokenClient: google.accounts.oauth2.TokenClient | null = null;
-let accessToken: google.accounts.oauth2.TokenResponse | null = null;
+
+// Initialize the access token from localStorage for session persistence.
+let accessToken: StoredToken | null = null;
+try {
+  const storedToken = localStorage.getItem('googleAccessToken');
+  if (storedToken) {
+    accessToken = JSON.parse(storedToken);
+  }
+} catch (e) {
+  console.error("Failed to parse stored Google access token.", e);
+  localStorage.removeItem('googleAccessToken');
+}
+
 
 // Augment window for gapi and google
 declare global {
@@ -84,39 +102,45 @@ const initGoogleAuth = async () => {
     tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: credentials.clientId,
         scope: `${DRIVE_SCOPE} ${GMAIL_SCOPE}`,
-        callback: (tokenResponse: google.accounts.oauth2.TokenResponse) => {
-            if (tokenResponse.error) {
-                // This case is handled in the promise rejection in getAccessToken
-                return;
-            }
-            accessToken = tokenResponse;
+        callback: () => {
+          // Callback is now handled within the getAccessToken promise for better flow control.
         },
     });
 };
 
 const getAccessToken = (): Promise<google.accounts.oauth2.TokenResponse> => {
     return new Promise((resolve, reject) => {
-        // Check if the token is still valid (assuming it expires in 3600s, check for more than 1 min left)
-        if (accessToken && accessToken.expires_in > 60) {
+        // Check if the stored token is still valid (with a 60-second buffer)
+        if (accessToken && accessToken.expires_at > Date.now() + 60 * 1000) {
             return resolve(accessToken);
         }
 
         if (!tokenClient) {
-            return reject(new Error("Google Auth not initialized."));
+            return reject(new Error("Google Auth not initialized. Call initGoogleAuth first."));
         }
         
+        // This is the callback that will be executed by GIS after a token request.
         tokenClient.callback = (tokenResponse) => {
             if (tokenResponse.error) {
                 const errorMsg = tokenResponse.error_description || tokenResponse.error;
+                // Clear out invalid/revoked token to allow for a fresh login attempt.
+                localStorage.removeItem('googleAccessToken');
+                accessToken = null;
                 return reject(new Error(`Google Auth Error: ${errorMsg}. Please ensure you have granted all requested permissions.`));
             }
-            accessToken = tokenResponse;
-            resolve(tokenResponse);
+            // Calculate when the token will expire and store it.
+            const expires_at = Date.now() + (tokenResponse.expires_in * 1000);
+            const newAccessToken: StoredToken = { ...tokenResponse, expires_at };
+            accessToken = newAccessToken;
+            localStorage.setItem('googleAccessToken', JSON.stringify(newAccessToken));
+            resolve(newAccessToken);
         }
 
-        if (accessToken) { // Token expired, refresh silently
+        // If we have a token (even if expired), the user has consented before. Try a silent refresh.
+        // Otherwise, prompt the user for consent.
+        if (accessToken) { 
             tokenClient.requestAccessToken({prompt: ''});
-        } else { // No token, prompt user
+        } else {
             tokenClient.requestAccessToken({prompt: 'consent'});
         }
     });
@@ -191,9 +215,10 @@ export const googleApiService = {
         credentials = { apiKey, clientId };
         localStorage.setItem('googleApiKey', apiKey);
         localStorage.setItem('googleClientId', clientId);
-        // Reset auth state if credentials change
+        // Reset auth state if credentials change to force re-authentication.
         tokenClient = null;
         accessToken = null;
+        localStorage.removeItem('googleAccessToken');
     },
     async pickDocAndGetContent(): Promise<string> {
         const doc = await showPicker();
