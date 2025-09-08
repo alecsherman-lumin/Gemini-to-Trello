@@ -18,9 +18,9 @@ const App: React.FC = () => {
   const [isImportingGmail, setIsImportingGmail] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // State for Google Credentials Flow - stored in-memory for the session only.
-  const [googleApiKey, setGoogleApiKey] = useState<string>('');
-  const [googleClientId, setGoogleClientId] = useState<string>('');
+  // State for Google Credentials Flow - initialize from localStorage for persistence.
+  const [googleApiKey, setGoogleApiKey] = useState<string>(() => localStorage.getItem('googleApiKey') || '');
+  const [googleClientId, setGoogleClientId] = useState<string>(() => localStorage.getItem('googleClientId') || '');
   const [showGooglePrompt, setShowGooglePrompt] = useState<boolean>(false);
   const [googleAction, setGoogleAction] = useState<'import' | 'scan' | 'gmail' | null>(null);
 
@@ -69,8 +69,6 @@ const App: React.FC = () => {
           if (e instanceof Error && !e.message.includes("cancelled") && !e.message.includes("No document selected")) {
               setError(`Failed to import from Google Docs: ${e.message}`);
               if (e.message.includes('Invalid') || e.message.includes('invalid') || e.message.includes('error')) {
-                  setGoogleApiKey('');
-                  setGoogleClientId('');
                   setShowGooglePrompt(true);
                   setGoogleAction('import');
               }
@@ -92,8 +90,6 @@ const App: React.FC = () => {
         if (e instanceof Error) {
             setError(`Failed to scan Google Drive: ${e.message}`);
             if (e.message.includes('Invalid') || e.message.includes('invalid') || e.message.includes('error')) {
-                setGoogleApiKey('');
-                setGoogleClientId('');
                 setShowGooglePrompt(true);
                 setGoogleAction('scan');
             }
@@ -115,8 +111,6 @@ const App: React.FC = () => {
         if (e instanceof Error) {
             setError(`Failed to import from Gmail: ${e.message}`);
             if (e.message.includes('Invalid') || e.message.includes('invalid') || e.message.includes('error') || e.message.includes('access was not granted')) {
-                setGoogleApiKey('');
-                setGoogleClientId('');
                 setShowGooglePrompt(true);
                 setGoogleAction('gmail');
             }
@@ -159,6 +153,7 @@ const App: React.FC = () => {
       setError("Please provide both an API Key and a Client ID.");
       return;
     }
+    // Set credentials in the service, which now handles saving to localStorage
     googleApiService.setCredentials(googleApiKey, googleClientId);
     setShowGooglePrompt(false);
     

@@ -4,18 +4,19 @@ import type { ActionItem } from '../types';
 import { MailIcon } from './icons/MailIcon';
 import { CheckIcon } from './icons/CheckIcon';
 import { SpinnerIcon } from './icons/SpinnerIcon';
+import { TrelloIcon } from './icons/TrelloIcon';
 
 interface ActionItemCardProps {
   item: ActionItem;
   onUpdate: (id: string, title: string, description: string) => void;
   onDelete: (id: string) => void;
-  isEmailConfigured: boolean;
+  isTrelloConfigured: boolean;
   onPost: (item: ActionItem) => void;
   isPosted: boolean;
   isPosting: boolean;
 }
 
-const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, onUpdate, onDelete, isEmailConfigured, onPost, isPosted, isPosting }) => {
+const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, onUpdate, onDelete, isTrelloConfigured, onPost, isPosted, isPosting }) => {
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onUpdate(item.id, e.target.value, item.description);
   };
@@ -57,7 +58,7 @@ const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, onUpdate, onDelet
         </div>
       </div>
       
-      {isEmailConfigured && (
+      {isTrelloConfigured && (
         <div className="flex-shrink-0 sm:border-l sm:border-slate-700 sm:pl-4 flex items-center justify-end sm:justify-center">
            {isPosted ? (
              <button
@@ -79,9 +80,9 @@ const ActionItemCard: React.FC<ActionItemCardProps> = ({ item, onUpdate, onDelet
              <button
                 onClick={() => onPost(item)}
                 className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors"
-                title="Send an email directly to your Trello board"
+                title="Create a card directly on your Trello board"
               >
-                <MailIcon className="w-5 h-5" />
+                <TrelloIcon className="w-5 h-5" />
                 Post to Trello
               </button>
            )}

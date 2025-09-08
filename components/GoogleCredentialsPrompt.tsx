@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { GoogleDocsIcon } from './icons/GoogleDocsIcon';
 
@@ -77,7 +78,7 @@ const GoogleCredentialsPrompt: React.FC<GoogleCredentialsPromptProps> = ({
            <li>
             You may also need to enable the <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">Gmail API</a> and <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">Google Drive API</a> for your project.
           </li>
-           <li>This app will request permission to read your Drive/Gmail files to find transcripts and <strong>send emails on your behalf</strong> to create Trello cards.</li>
+           <li>This app will request permission to read your Drive/Gmail files to find transcripts.</li>
         </ol>
       </div>
 
