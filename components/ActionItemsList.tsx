@@ -4,7 +4,6 @@ import type { ActionItem } from '../types';
 import ActionItemCard from './ActionItemCard';
 import ErrorDisplay from './ErrorDisplay';
 import { SpinnerIcon } from './icons/SpinnerIcon';
-import TrelloConfiguration from './TrelloConfiguration';
 import { trelloService } from '../services/trelloService';
 import { TrelloIcon } from './icons/TrelloIcon';
 
@@ -14,14 +13,29 @@ interface ActionItemsListProps {
   onDelete: (id: string) => void;
   onReset: () => void;
   isTrelloConfigured: boolean;
-  onConfigurationComplete: (isConfigured: boolean) => void;
+  onRequestTrelloConfigChange: () => void;
 }
 
-const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDelete, onReset, isTrelloConfigured, onConfigurationComplete }) => {
+const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDelete, onReset, isTrelloConfigured, onRequestTrelloConfigChange }) => {
   const [error, setError] = useState<string | null>(null);
   const [postedCardIds, setPostedCardIds] = useState<Set<string>>(new Set());
   const [isPostingIds, setIsPostingIds] = useState<Set<string>>(new Set());
   const [isPostingAll, setIsPostingAll] = useState<boolean>(false);
+
+  // Safely get and parse Trello board/list info from localStorage for display
+  const getTrelloTargetInfo = () => {
+    const boardData = localStorage.getItem('trelloBoard');
+    const listData = localStorage.getItem('trelloList');
+    try {
+      const boardName = boardData ? JSON.parse(boardData).name : '';
+      const listName = listData ? JSON.parse(listData).name : '';
+      return { boardName, listName };
+    } catch (e) {
+      console.error("Failed to parse Trello info from localStorage", e);
+      return { boardName: '', listName: '' };
+    }
+  };
+  const { boardName, listName } = getTrelloTargetInfo();
 
   const handlePostToTrello = async (item: ActionItem) => {
     const listData = localStorage.getItem('trelloList');
@@ -121,13 +135,22 @@ const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDe
       </div>
       
       <div className="mt-6 p-6 bg-slate-800/50 rounded-xl border border-slate-700">
-        <h3 className="text-xl font-bold mb-4 text-slate-100">Trello Integration</h3>
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold text-slate-100">Trello Integration</h3>
+             {isTrelloConfigured && (
+              <button onClick={onRequestTrelloConfigChange} className="text-sm text-slate-400 hover:text-white hover:underline">
+                Change Settings
+              </button>
+            )}
+        </div>
+        
         {error && <div className="mb-4"><ErrorDisplay message={error} /></div>}
         
-        <TrelloConfiguration onConfigurationComplete={onConfigurationComplete} />
-        
-        {isTrelloConfigured && (
-            <div className="mt-4">
+        {isTrelloConfigured ? (
+            <div className="space-y-4">
+                <p className="text-sm text-slate-300">
+                    Posting cards to: <span className="font-mono text-purple-400">{boardName} / {listName}</span>
+                </p>
                 <button
                     onClick={handlePostAll}
                     disabled={isPostingAll || remainingItemsCount === 0}
@@ -142,6 +165,17 @@ const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDe
                         ? `Posting... (${items.length - remainingItemsCount} of ${items.length} posted)` 
                         : `Post All Remaining Cards (${remainingItemsCount})`
                     }
+                </button>
+            </div>
+        ) : (
+            <div className="text-center">
+                <p className="text-slate-300 mb-4">You need to configure Trello to post these cards.</p>
+                <button
+                    onClick={onRequestTrelloConfigChange}
+                    className="flex items-center justify-center gap-2 w-full max-w-xs mx-auto px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700"
+                >
+                    <TrelloIcon className="w-5 h-5" />
+                    Configure Trello Now
                 </button>
             </div>
         )}

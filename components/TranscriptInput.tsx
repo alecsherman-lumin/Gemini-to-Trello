@@ -55,12 +55,6 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
           Forward your meeting notes to your Gmail, then click the button below to automatically create Trello cards.
         </p>
 
-        {!isTrelloConfigured && (
-          <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-600/50 text-yellow-300 rounded-lg text-sm">
-            <strong>Trello Not Configured:</strong> Please configure your Trello connection in the next step to enable this feature.
-          </div>
-        )}
-
         <button
           type="button"
           onClick={onAutoPostFromGmail}

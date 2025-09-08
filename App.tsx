@@ -10,6 +10,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
 import GoogleCredentialsPrompt from './components/GoogleCredentialsPrompt';
 import AutoPostSummary from './components/AutoPostSummary';
+import TrelloConfiguration from './components/TrelloConfiguration';
 
 const App: React.FC = () => {
   const [transcript, setTranscript] = useState<string>('');
@@ -27,8 +28,10 @@ const App: React.FC = () => {
   const [showGooglePrompt, setShowGooglePrompt] = useState<boolean>(false);
   const [googleAction, setGoogleAction] = useState<'import' | 'scan' | 'gmail' | 'autopost' | null>(null);
   
-  // Lifted state for Trello configuration
+  // State for Trello configuration and main UI view
   const [isTrelloConfigured, setIsTrelloConfigured] = useState<boolean>(() => !!localStorage.getItem('trelloListId'));
+  const [view, setView] = useState<'config' | 'main'>(() => !!localStorage.getItem('trelloListId') ? 'main' : 'config');
+
   const [autoPostResult, setAutoPostResult] = useState<AutoPostResult | null>(null);
 
 
@@ -131,11 +134,13 @@ const App: React.FC = () => {
   const handleAutoPostFromGmail = useCallback(async () => {
     if (!isTrelloConfigured) {
       setError("Trello is not configured. Please set up your Trello board and list before using this feature.");
+      setView('config');
       return;
     }
     const listData = localStorage.getItem('trelloList');
     if (!listData) {
       setError("Trello list configuration is missing.");
+      setView('config');
       return;
     }
     const listId = JSON.parse(listData).id;
@@ -264,8 +269,13 @@ const App: React.FC = () => {
     setIsAutoPosting(false);
     setAutoPostResult(null);
   }, []);
+  
+  const handleConfigurationComplete = (configured: boolean) => {
+      setIsTrelloConfigured(configured);
+      setView(configured ? 'main' : 'config');
+  }
 
-  const renderContent = () => {
+  const renderMainContent = () => {
     if (isLoading) {
       return <LoadingSpinner message="Gemini is analyzing the text and extracting action items..." />;
     }
@@ -283,11 +293,28 @@ const App: React.FC = () => {
           onDelete={handleDeleteActionItem}
           onReset={handleReset}
           isTrelloConfigured={isTrelloConfigured}
-          onConfigurationComplete={setIsTrelloConfigured}
+          onRequestTrelloConfigChange={() => setView('config')}
         />
       );
     }
-    return null;
+     // When in 'main' view but no actions are active, show the input screen.
+     return (
+       <TranscriptInput
+         onSubmit={handleFindActionItems}
+         onImportFromGoogleDocs={handleInitiateGoogleImport}
+         onScanDrive={handleInitiateGoogleScan}
+         onImportFromGmail={handleInitiateGmailImport}
+         onAutoPostFromGmail={handleInitiateAutoPostFromGmail}
+         isLoading={isLoading}
+         isImporting={isImporting}
+         isScanning={isScanning}
+         isImportingGmail={isImportingGmail}
+         isAutoPosting={isAutoPosting}
+         isTrelloConfigured={isTrelloConfigured}
+         transcript={transcript}
+         setTranscript={setTranscript}
+       />
+     );
   };
 
   return (
@@ -309,28 +336,25 @@ const App: React.FC = () => {
               />
           </div>
         )}
-
-        {actionItems.length === 0 && !isLoading && !autoPostResult && !isAutoPosting && (
-          <TranscriptInput
-            onSubmit={handleFindActionItems}
-            onImportFromGoogleDocs={handleInitiateGoogleImport}
-            onScanDrive={handleInitiateGoogleScan}
-            onImportFromGmail={handleInitiateGmailImport}
-            onAutoPostFromGmail={handleInitiateAutoPostFromGmail}
-            isLoading={isLoading}
-            isImporting={isImporting}
-            isScanning={isScanning}
-            isImportingGmail={isImportingGmail}
-            isAutoPosting={isAutoPosting}
-            isTrelloConfigured={isTrelloConfigured}
-            transcript={transcript}
-            setTranscript={setTranscript}
-          />
+        
+        {view === 'config' && (
+           <div className="bg-slate-800/50 p-6 rounded-xl shadow-lg border border-slate-700">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold">Connect to Trello</h2>
+              <p className="text-slate-400 mt-2 max-w-xl mx-auto">
+                To get started, connect your Trello account. This will allow the app to create cards on your selected board and list.
+              </p>
+            </div>
+            <TrelloConfiguration onConfigurationComplete={handleConfigurationComplete} />
+          </div>
         )}
 
-        <div className="mt-8">
-          {renderContent()}
-        </div>
+        {view === 'main' && (
+            <div className="mt-8">
+              {renderMainContent()}
+            </div>
+        )}
+        
       </main>
     </div>
   );
