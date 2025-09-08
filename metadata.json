@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Meet to Trello",
+  "description": "An application that uses Gemini to analyze Google Meet transcripts or summaries, identify action items, and format them for creation as Trello cards.",
+  "requestFramePermissions": []
+}

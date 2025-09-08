@@ -1,0 +1,25 @@
+{
+  "name": "Gemini Meet to Trello",
+  "short_name": "Meet to Trello",
+  "description": "Analyzes Google Meet transcripts with Gemini to create Trello cards for action items.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#8b5cf6",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}
