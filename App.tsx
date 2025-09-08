@@ -1,13 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import type { ActionItem } from './types';
+import type { ActionItem, AutoPostResult } from './types';
 import { findActionItemsFromTranscript } from './services/geminiService';
 import { googleApiService } from './services/googlePickerService';
+import { trelloService } from './services/trelloService';
 import TranscriptInput from './components/TranscriptInput';
 import ActionItemsList from './components/ActionItemsList';
 import Header from './components/Header';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorDisplay from './components/ErrorDisplay';
 import GoogleCredentialsPrompt from './components/GoogleCredentialsPrompt';
+import AutoPostSummary from './components/AutoPostSummary';
 
 const App: React.FC = () => {
   const [transcript, setTranscript] = useState<string>('');
@@ -16,13 +18,18 @@ const App: React.FC = () => {
   const [isImporting, setIsImporting] = useState<boolean>(false);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isImportingGmail, setIsImportingGmail] = useState<boolean>(false);
+  const [isAutoPosting, setIsAutoPosting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // State for Google Credentials Flow - initialize from localStorage for persistence.
   const [googleApiKey, setGoogleApiKey] = useState<string>(() => localStorage.getItem('googleApiKey') || '');
   const [googleClientId, setGoogleClientId] = useState<string>(() => localStorage.getItem('googleClientId') || '');
   const [showGooglePrompt, setShowGooglePrompt] = useState<boolean>(false);
-  const [googleAction, setGoogleAction] = useState<'import' | 'scan' | 'gmail' | null>(null);
+  const [googleAction, setGoogleAction] = useState<'import' | 'scan' | 'gmail' | 'autopost' | null>(null);
+  
+  // Lifted state for Trello configuration
+  const [isTrelloConfigured, setIsTrelloConfigured] = useState<boolean>(() => !!localStorage.getItem('trelloListId'));
+  const [autoPostResult, setAutoPostResult] = useState<AutoPostResult | null>(null);
 
 
   useEffect(() => {
@@ -121,6 +128,70 @@ const App: React.FC = () => {
     }
   }, [handleFindActionItems]);
 
+  const handleAutoPostFromGmail = useCallback(async () => {
+    if (!isTrelloConfigured) {
+      setError("Trello is not configured. Please set up your Trello board and list before using this feature.");
+      return;
+    }
+    const listData = localStorage.getItem('trelloList');
+    if (!listData) {
+      setError("Trello list configuration is missing.");
+      return;
+    }
+    const listId = JSON.parse(listData).id;
+
+    setIsAutoPosting(true);
+    setError(null);
+    setAutoPostResult(null);
+
+    const result: AutoPostResult = { posted: [], failed: [] };
+
+    try {
+      // 1. Fetch from Gmail
+      const emailContent = await googleApiService.findAndLoadForwardedEmail();
+      
+      // 2. Analyze with Gemini
+      const itemsToPost = await findActionItemsFromTranscript(emailContent);
+      
+      if (itemsToPost.length === 0) {
+        setAutoPostResult({ posted: [], failed: [{ title: "No Action Items Found", error: "Gemini did not identify any action items in the email."}] });
+        setIsAutoPosting(false);
+        return;
+      }
+      
+      // 3. Post to Trello
+      for (const item of itemsToPost) {
+        try {
+          await trelloService.createCard(listId, item.title, item.description);
+          result.posted.push(item);
+        } catch (e) {
+          const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
+          result.failed.push({ title: item.title, error: errorMessage });
+        }
+      }
+      setAutoPostResult(result);
+
+    } catch (e) {
+        const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during the process.";
+        setError(`Auto-posting failed: ${errorMessage}`);
+        if (errorMessage.includes('Invalid') || errorMessage.includes('invalid') || errorMessage.includes('error') || errorMessage.includes('access was not granted')) {
+            setShowGooglePrompt(true);
+            setGoogleAction('autopost');
+        }
+    } finally {
+        setIsAutoPosting(false);
+    }
+  }, [isTrelloConfigured]);
+  
+  const handleInitiateAutoPostFromGmail = useCallback(() => {
+    setGoogleAction('autopost');
+    if (googleApiKey && googleClientId) {
+        handleAutoPostFromGmail();
+    } else {
+        setShowGooglePrompt(true);
+    }
+  }, [handleAutoPostFromGmail, googleApiKey, googleClientId]);
+
   const handleInitiateGoogleImport = useCallback(() => {
     setGoogleAction('import');
     if (googleApiKey && googleClientId) {
@@ -163,9 +234,11 @@ const App: React.FC = () => {
         await handleScanDrive();
     } else if (googleAction === 'gmail') {
         await handleGmailImport();
+    } else if (googleAction === 'autopost') {
+        await handleAutoPostFromGmail();
     }
     setGoogleAction(null);
-  }, [googleApiKey, googleClientId, handleGoogleImport, handleScanDrive, handleGmailImport, googleAction]);
+  }, [googleApiKey, googleClientId, handleGoogleImport, handleScanDrive, handleGmailImport, handleAutoPostFromGmail, googleAction]);
 
 
   const handleUpdateActionItem = useCallback((id: string, updatedTitle: string, updatedDescription: string) => {
@@ -188,11 +261,19 @@ const App: React.FC = () => {
     setIsImporting(false);
     setIsScanning(false);
     setIsImportingGmail(false);
+    setIsAutoPosting(false);
+    setAutoPostResult(null);
   }, []);
 
   const renderContent = () => {
     if (isLoading) {
       return <LoadingSpinner message="Gemini is analyzing the text and extracting action items..." />;
+    }
+    if (isAutoPosting) {
+       return <LoadingSpinner message="Processing email: finding transcript, analyzing with Gemini, and posting cards to Trello..." />;
+    }
+    if (autoPostResult) {
+      return <AutoPostSummary result={autoPostResult} onReset={handleReset} />;
     }
     if (actionItems.length > 0) {
       return (
@@ -201,6 +282,8 @@ const App: React.FC = () => {
           onUpdate={handleUpdateActionItem}
           onDelete={handleDeleteActionItem}
           onReset={handleReset}
+          isTrelloConfigured={isTrelloConfigured}
+          onConfigurationComplete={setIsTrelloConfigured}
         />
       );
     }
@@ -221,22 +304,25 @@ const App: React.FC = () => {
                   clientId={googleClientId}
                   setClientId={setGoogleClientId}
                   onConnect={handleSaveGoogleCredentialsAndContinue}
-                  isLoading={isImporting || isScanning || isImportingGmail}
+                  isLoading={isImporting || isScanning || isImportingGmail || isAutoPosting}
                   onCancel={() => { setShowGooglePrompt(false); setError(null); setGoogleAction(null); }}
               />
           </div>
         )}
 
-        {actionItems.length === 0 && !isLoading && (
+        {actionItems.length === 0 && !isLoading && !autoPostResult && !isAutoPosting && (
           <TranscriptInput
             onSubmit={handleFindActionItems}
             onImportFromGoogleDocs={handleInitiateGoogleImport}
             onScanDrive={handleInitiateGoogleScan}
             onImportFromGmail={handleInitiateGmailImport}
+            onAutoPostFromGmail={handleInitiateAutoPostFromGmail}
             isLoading={isLoading}
             isImporting={isImporting}
             isScanning={isScanning}
             isImportingGmail={isImportingGmail}
+            isAutoPosting={isAutoPosting}
+            isTrelloConfigured={isTrelloConfigured}
             transcript={transcript}
             setTranscript={setTranscript}
           />

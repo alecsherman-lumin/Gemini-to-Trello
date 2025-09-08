@@ -3,3 +3,8 @@ export interface ActionItem {
   title: string;
   description: string;
 }
+
+export interface AutoPostResult {
+  posted: ActionItem[];
+  failed: { title: string; error: string }[];
+}

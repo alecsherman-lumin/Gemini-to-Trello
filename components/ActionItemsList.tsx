@@ -13,11 +13,12 @@ interface ActionItemsListProps {
   onUpdate: (id: string, title: string, description: string) => void;
   onDelete: (id: string) => void;
   onReset: () => void;
+  isTrelloConfigured: boolean;
+  onConfigurationComplete: (isConfigured: boolean) => void;
 }
 
-const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDelete, onReset }) => {
+const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDelete, onReset, isTrelloConfigured, onConfigurationComplete }) => {
   const [error, setError] = useState<string | null>(null);
-  const [isTrelloConfigured, setIsTrelloConfigured] = useState<boolean>(!!localStorage.getItem('trelloListId'));
   const [postedCardIds, setPostedCardIds] = useState<Set<string>>(new Set());
   const [isPostingIds, setIsPostingIds] = useState<Set<string>>(new Set());
   const [isPostingAll, setIsPostingAll] = useState<boolean>(false);
@@ -123,7 +124,7 @@ const ActionItemsList: React.FC<ActionItemsListProps> = ({ items, onUpdate, onDe
         <h3 className="text-xl font-bold mb-4 text-slate-100">Trello Integration</h3>
         {error && <div className="mb-4"><ErrorDisplay message={error} /></div>}
         
-        <TrelloConfiguration onConfigurationComplete={setIsTrelloConfigured} />
+        <TrelloConfiguration onConfigurationComplete={onConfigurationComplete} />
         
         {isTrelloConfigured && (
             <div className="mt-4">

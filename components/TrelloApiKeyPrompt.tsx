@@ -30,32 +30,36 @@ const TrelloApiKeyPrompt: React.FC<TrelloApiKeyPromptProps> = ({ onConnect, onCa
       <div className="space-y-4 text-slate-300 bg-slate-900/50 p-4 rounded-lg border border-slate-700 mb-6">
         <h4 className="font-semibold text-slate-100">How to get your credentials:</h4>
         <ol className="list-decimal list-inside space-y-3 text-sm">
-          <li>
-            Go to the Trello Developer API Keys page: <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">trello.com/app-key</a>.
-          </li>
-          <li>
-            You will see your "Personal Key" at the top of the page. This is your <strong>API Key</strong>. Copy it.
-          </li>
-          <li>
-            On that same page, click the link under your key that says "Token".
-          </li>
-          <li>
-            On the next page, you'll be asked to authorize this app. Click the "Allow" button.
-          </li>
-          <li>
-            After allowing, Trello will show you a <strong>Token</strong>. Copy it.
-          </li>
-          <li>
-            Paste both the API Key and the Token into the fields below.
-          </li>
+            <li>
+                Go to your Trello Developer API Keys page: <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">trello.com/app-key</a>.
+            </li>
+            <li>
+                You will see your "Personal Key" at the top. This is your <strong>API Key</strong>. Copy it into the field below.
+            </li>
+            <li>
+                <strong>Crucially</strong>, on that same page, click the small link under your key that says "Token". This will generate a token that is specifically linked to that API Key.
+            </li>
+            <li>
+                A new page will open asking you to authorize access. Scroll down and click the "Allow" button.
+            </li>
+            <li>
+                Trello will now show you your <strong>Token</strong>. Copy this token into the second field below.
+            </li>
         </ol>
       </div>
       
       <div className="bg-yellow-900/30 border border-yellow-600/50 text-yellow-300 p-4 rounded-lg mb-6 text-sm" role="alert">
-        <p className="font-bold">Troubleshooting</p>
-        <p className="mt-1">
-          If you get an "invalid key" or "unauthorized" error after connecting, it usually means the key or token was copied incorrectly. Please double-check them. If the problem persists, try generating a new Token from the Trello developer page.
-        </p>
+        <p className="font-bold">Troubleshooting Common Errors</p>
+        <ul className="list-disc list-inside mt-2 space-y-1">
+            <li>
+                <strong>"invalid app token" or "unauthorized" (401 Error):</strong> This is the most common issue. It means your <strong>Token does not match your API Key</strong>.
+                <br />
+                <strong>Solution:</strong> Go back to the <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">trello.com/app-key</a> page. Make sure the API Key you see there is the exact one you pasted into the field above. Then, click the "Token" link located <em>directly on that page</em> to generate a new token that matches the key.
+            </li>
+            <li>
+                <strong>"invalid key":</strong> This error means the API Key itself is incorrect. Please double-check that you have copied the entire key correctly.
+            </li>
+        </ul>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
