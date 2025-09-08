@@ -54,7 +54,7 @@ const GoogleCredentialsPrompt: React.FC<GoogleCredentialsPromptProps> = ({
               <li>Set Application type to <code className="bg-slate-700 text-xs px-1 py-0.5 rounded">Web application</code>.</li>
               <li>Under <code className="bg-slate-700 text-xs px-1 py-0.5 rounded">Authorized JavaScript origins</code>, click <code className="bg-slate-700 text-xs px-1 py-0.5 rounded">+ ADD URI</code>.</li>
               <li>
-                Paste in your app's origin URL (click to copy):
+                You <strong>must</strong> add the following URL. It needs to be an exact match. Click the box to copy it:
                 <div className="mt-1">
                   <input
                     type="text"
@@ -78,6 +78,13 @@ const GoogleCredentialsPrompt: React.FC<GoogleCredentialsPromptProps> = ({
             You may also need to enable the <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">Gmail API</a> and <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline font-medium">Google Drive API</a> for your project.
           </li>
         </ol>
+      </div>
+
+      <div className="bg-yellow-900/30 border border-yellow-600/50 text-yellow-300 p-4 rounded-lg mb-6 text-sm" role="alert">
+        <p className="font-bold">Troubleshooting: `Error 400: redirect_uri_mismatch`</p>
+        <p className="mt-1">
+          This common error means the "Authorized JavaScript origin" in your Google Cloud project does not exactly match this app's URL. Please ensure you have correctly added the origin URL shown in step 3 above.
+        </p>
       </div>
 
 
