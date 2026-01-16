@@ -67,3 +67,49 @@ export const findActionItemsFromTranscript = async (transcript: string): Promise
     throw new Error("Failed to extract action items from the transcript. The model may have returned an unexpected format.");
   }
 };
+
+export const findActionItemsFromAudio = async (base64Audio: string, mimeType: string): Promise<ActionItem[]> => {
+  try {
+    const prompt = `
+      Listen to the following meeting audio recording.
+      Your task is to identify all distinct action items. An action item is a task, assignment, or commitment that needs to be completed by someone.
+      For each action item you find, create a title and a description.
+      - The 'title' should be a brief, clear summary of the task, suitable for a Trello card title.
+      - The 'description' should provide more detail and context about the task based on the audio.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: {
+        parts: [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Audio
+            }
+          },
+          { text: prompt }
+        ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+      },
+    });
+
+    const parsedResponse = JSON.parse(response.text);
+
+    if (!Array.isArray(parsedResponse)) {
+        throw new Error("Gemini did not return a valid array of action items.");
+    }
+
+    return parsedResponse.map((item: Omit<ActionItem, 'id'>) => ({
+        ...item,
+        id: crypto.randomUUID(),
+    }));
+
+  } catch (error) {
+    console.error("Error calling Gemini API with audio:", error);
+    throw new Error("Failed to extract action items from the audio file. Please ensure the audio is clear and under the API size limit.");
+  }
+};

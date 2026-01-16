@@ -1,6 +1,7 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import type { ActionItem, AutoPostResult } from './types';
-import { findActionItemsFromTranscript } from './services/geminiService';
+import { findActionItemsFromTranscript, findActionItemsFromAudio } from './services/geminiService';
 import { googleApiService } from './services/googlePickerService';
 import { trelloService } from './services/trelloService';
 import TranscriptInput from './components/TranscriptInput';
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [isImportingGmail, setIsImportingGmail] = useState<boolean>(false);
   const [isAutoPosting, setIsAutoPosting] = useState<boolean>(false);
+  const [isProcessingAudio, setIsProcessingAudio] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   // State for Google Credentials Flow - initialize from localStorage for persistence.
@@ -68,6 +70,43 @@ const App: React.FC = () => {
     }
   }, []);
   
+  const handleProcessAudioFile = useCallback(async (file: File) => {
+    setIsProcessingAudio(true);
+    setError(null);
+    setActionItems([]);
+    
+    // Check for large files to prevent browser crash/timeout before upload
+    // 20MB is a safe-ish limit for Base64 inline data
+    if (file.size > 20 * 1024 * 1024) {
+        setError("File is too large. Please upload an audio file smaller than 20MB.");
+        setIsProcessingAudio(false);
+        return;
+    }
+
+    try {
+        const base64Data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const result = reader.result as string;
+                // Remove the "data:*/*;base64," prefix
+                const base64 = result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = error => reject(error);
+        });
+
+        const items = await findActionItemsFromAudio(base64Data, file.type);
+        setActionItems(items);
+        setTranscript(`[Processed audio file: ${file.name}]`);
+    } catch (e) {
+        console.error(e);
+        setError(e instanceof Error ? e.message : "An unknown error occurred processing the audio file.");
+    } finally {
+        setIsProcessingAudio(false);
+    }
+  }, []);
+
   const handleGoogleImport = useCallback(async () => {
       setIsImporting(true);
       setError(null);
@@ -267,6 +306,7 @@ const App: React.FC = () => {
     setIsScanning(false);
     setIsImportingGmail(false);
     setIsAutoPosting(false);
+    setIsProcessingAudio(false);
     setAutoPostResult(null);
   }, []);
   
@@ -278,6 +318,9 @@ const App: React.FC = () => {
   const renderMainContent = () => {
     if (isLoading) {
       return <LoadingSpinner message="Gemini is analyzing the text and extracting action items..." />;
+    }
+    if (isProcessingAudio) {
+      return <LoadingSpinner message="Uploading audio, generating transcript, and extracting action items..." />;
     }
     if (isAutoPosting) {
        return <LoadingSpinner message="Processing email: finding transcript, analyzing with Gemini, and posting cards to Trello..." />;
@@ -305,11 +348,13 @@ const App: React.FC = () => {
          onScanDrive={handleInitiateGoogleScan}
          onImportFromGmail={handleInitiateGmailImport}
          onAutoPostFromGmail={handleInitiateAutoPostFromGmail}
+         onProcessAudioFile={handleProcessAudioFile}
          isLoading={isLoading}
          isImporting={isImporting}
          isScanning={isScanning}
          isImportingGmail={isImportingGmail}
          isAutoPosting={isAutoPosting}
+         isProcessingAudio={isProcessingAudio}
          isTrelloConfigured={isTrelloConfigured}
          transcript={transcript}
          setTranscript={setTranscript}

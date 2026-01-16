@@ -1,3 +1,4 @@
+
 // FIX: Add minimal type definitions for Google Identity Services to resolve namespace errors.
 declare namespace google {
     namespace accounts {
@@ -28,7 +29,7 @@ let credentials = {
 };
 
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
-const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
 
 
 let gapiLoadedPromise: Promise<void> | null = null;
@@ -268,15 +269,16 @@ export const googleApiService = {
         await initGoogleAuth();
         await getAccessToken(); // This ensures we are logged in
 
+        // UPDATED: Search for emails from both potential Meet notes senders.
         const listResponse = await window.gapi.client.gmail.users.messages.list({
             userId: 'me',
-            q: 'from:gemini-notes@google.com is:unread',
+            q: '(from:gemini-notes@google.com OR from:meetings-noreply@google.com) is:unread',
             maxResults: 1,
         });
 
         const messages = listResponse.result.messages;
         if (!messages || messages.length === 0) {
-            throw new Error("No unread email from gemini-notes@google.com found in your inbox.");
+            throw new Error("No unread email from gemini-notes@google.com or meetings-noreply@google.com found in your inbox.");
         }
         
         const messageId = messages[0].id;
@@ -311,6 +313,23 @@ export const googleApiService = {
             throw new Error("Could not find plain text content in the email.");
         }
 
-        return base64UrlDecode(plainTextPart.body.data);
+        const decodedContent = base64UrlDecode(plainTextPart.body.data);
+
+        // Mark the email as read now that we have successfully retrieved and decoded the content.
+        try {
+            await window.gapi.client.gmail.users.messages.modify({
+                userId: 'me',
+                id: messageId,
+                resource: {
+                    removeLabelIds: ['UNREAD']
+                }
+            });
+        } catch (e) {
+            // Log the error but don't fail the whole operation.
+            // The consequence is the email might be processed again.
+            console.warn(`Could not mark email ${messageId} as read. It may be processed again. Error:`, e);
+        }
+
+        return decodedContent;
     }
 };

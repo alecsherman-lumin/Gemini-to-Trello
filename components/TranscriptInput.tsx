@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { GoogleDocsIcon } from './icons/GoogleDocsIcon';
 import { ScanIcon } from './icons/ScanIcon';
 import { GmailIcon } from './icons/GmailIcon';
 import { MailIcon } from './icons/MailIcon';
 import { SpinnerIcon } from './icons/SpinnerIcon';
+import { AudioFileIcon } from './icons/AudioFileIcon';
 
 interface TranscriptInputProps {
   onSubmit: (transcript: string) => void;
@@ -12,11 +14,13 @@ interface TranscriptInputProps {
   onScanDrive: () => void;
   onImportFromGmail: () => void;
   onAutoPostFromGmail: () => void;
+  onProcessAudioFile: (file: File) => void;
   isLoading: boolean;
   isImporting: boolean;
   isScanning: boolean;
   isImportingGmail: boolean;
   isAutoPosting: boolean;
+  isProcessingAudio: boolean;
   isTrelloConfigured: boolean;
   transcript: string;
   setTranscript: (value: string) => void;
@@ -28,31 +32,45 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
     onScanDrive,
     onImportFromGmail,
     onAutoPostFromGmail,
+    onProcessAudioFile,
     isLoading, 
     isImporting, 
     isScanning,
     isImportingGmail,
     isAutoPosting,
+    isProcessingAudio,
     isTrelloConfigured,
     transcript, 
     setTranscript 
 }) => {
   const [showManualInput, setShowManualInput] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(transcript);
   };
 
-  const isAnyActionLoading = isLoading || isImporting || isScanning || isImportingGmail || isAutoPosting;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onProcessAudioFile(e.target.files[0]);
+    }
+    // Reset input so the same file can be selected again if needed
+    if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
+  };
+
+  const isAnyActionLoading = isLoading || isImporting || isScanning || isImportingGmail || isAutoPosting || isProcessingAudio;
 
   return (
     <div className="bg-slate-800/50 p-6 rounded-xl shadow-lg border border-slate-700">
       
+      {/* Section 1: Email Automation */}
       <div className="text-center">
         <h2 className="text-xl font-bold text-slate-100 mb-2">Automated Workflow</h2>
         <p className="text-slate-400 mb-4">
-          Forward your meeting notes to your Gmail, then click the button below to automatically create Trello cards.
+          Receive notes from Google Meet, then click below to automatically create Trello cards.
         </p>
 
         <button
@@ -60,15 +78,43 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
           onClick={onAutoPostFromGmail}
           disabled={isAnyActionLoading || !isTrelloConfigured}
           className="w-full max-w-md mx-auto flex items-center justify-center gap-3 px-6 py-4 bg-purple-600 text-white font-bold rounded-lg shadow-lg hover:bg-purple-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:scale-100"
-          title={isTrelloConfigured ? "Finds the newest unread email from gemini-notes@google.com and posts all action items to Trello." : "You must configure Trello first."}
+          title={isTrelloConfigured ? "Finds the newest unread email from Google Meet (gemini-notes or meetings-noreply) and posts to Trello." : "You must configure Trello first."}
         >
           {isAutoPosting ? <SpinnerIcon className="w-6 h-6" /> : <MailIcon className="w-6 h-6" />}
-          {isAutoPosting ? 'Processing Your Email...' : 'Process Latest Email'}
+          {isAutoPosting ? 'Processing Your Email...' : 'Process Latest Meeting Email'}
         </button>
       </div>
 
       <div className="my-6 border-t border-slate-700"></div>
 
+      {/* Section 2: Audio Upload (Visible) */}
+      <div className="text-center">
+        <h2 className="text-xl font-bold text-slate-100 mb-2">Upload Recording</h2>
+        <p className="text-slate-400 mb-4">
+          Upload an audio file (.m4a, .mp3) to transcribe and extract action items.
+        </p>
+         <input 
+            type="file" 
+            ref={fileInputRef}
+            className="hidden" 
+            accept="audio/*,.m4a,.mp3,.wav,.aac"
+            onChange={handleFileChange}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isAnyActionLoading}
+          className="w-full max-w-md mx-auto flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white font-bold rounded-lg shadow-lg hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 disabled:scale-100"
+          title="Upload an audio file (.m4a, .mp3) for processing"
+        >
+          <AudioFileIcon className="w-6 h-6" />
+          {isProcessingAudio ? 'Processing Audio...' : 'Upload Audio File'}
+        </button>
+      </div>
+
+      <div className="my-6 border-t border-slate-700"></div>
+
+      {/* Section 3: Manual Options (Collapsed) */}
       <details className="group">
         <summary 
           className="cursor-pointer text-center text-slate-400 hover:text-white"
@@ -77,13 +123,13 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
             setShowManualInput(!showManualInput);
           }}
         >
-          {showManualInput ? 'Hide Manual Options' : 'Show Manual Options'}
+          {showManualInput ? 'Hide Manual Text / Import Options' : 'Show Manual Text / Import Options'}
         </summary>
         
         <div className={`mt-4 ${showManualInput ? 'animate-[fadeIn_0.5s_ease-in-out]' : 'hidden'}`}>
           <form onSubmit={handleSubmit}>
             <label htmlFor="transcript" className="block text-lg font-medium text-slate-300 mb-2">
-              Paste your transcript or import a file
+              Paste your transcript
             </label>
             <textarea
               id="transcript"
@@ -94,13 +140,14 @@ const TranscriptInput: React.FC<TranscriptInputProps> = ({
               placeholder="e.g., 'Alex to follow up on the Q3 budget report by Friday...'"
               disabled={isAnyActionLoading}
             />
-            <div className="mt-4 flex flex-col sm:flex-row justify-end items-center gap-4">
+            
+            <div className="mt-4 flex flex-col sm:flex-row justify-end items-center gap-4 flex-wrap">
               <button
                 type="button"
                 onClick={onImportFromGmail}
                 disabled={isAnyActionLoading}
                 className="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 bg-slate-600 text-white font-semibold rounded-lg shadow-md hover:bg-slate-700 disabled:bg-slate-500 disabled:cursor-not-allowed transition-all duration-300"
-                title="Finds the newest unread email from gemini-notes@google.com"
+                title="Finds unread meeting notes in your Gmail"
               >
                 <GmailIcon className="w-5 h-5" />
                 {isImportingGmail ? 'Importing...' : 'Import from Gmail'}
